@@ -1,6 +1,7 @@
 # Tracelink API Client
-
 A Node.js library for interfacing with [Tracelink's REST API](https://tracelink.dk/api-doc/).
+
+To explore and test endpoints interactively in the browser, use the [API Playground](https://tracelink.dk/api-doc/playground.html).                    
 
 ## Installation
 
