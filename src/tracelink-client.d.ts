@@ -12,6 +12,11 @@ export interface RequestOptions {
   idempotency_key?: string;
 }
 
+export interface GetObjectOptions {
+  /** Subtable(s) to include inline in the response, e.g. 'line,journal' or ['line', 'journal'] */
+  expand?: string | string[];
+}
+
 export interface OrderParams {
   sort?: string | string[];
   reverse?: boolean;
@@ -141,7 +146,7 @@ declare class SuborderClient {
 declare class ObjectClient {
   createTag(product_id: string, count?: number): Promise<TracelinkResponse & { object: { tag_id: string } }>;
   create(module_name: string, data: ModuleObject, options?: RequestOptions): Promise<TracelinkResponse>;
-  get(module_name: string, id: number | string): Promise<TracelinkResponse & { object: ModuleObject }>;
+  get(module_name: string, id: number | string, options?: GetObjectOptions): Promise<TracelinkResponse & { object: ModuleObject }>;
   list(module_name: string, options?: OrderParams): Promise<TracelinkResponse & { object: ModuleObject[] }>;
   update(module_name: string, data: ModuleObject, options?: RequestOptions): Promise<TracelinkResponse>;
   delete(module_name: string, id_field: string, id_value: number | string): Promise<TracelinkResponse>;

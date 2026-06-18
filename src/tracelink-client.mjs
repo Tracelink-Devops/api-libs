@@ -265,8 +265,13 @@ class ObjectClient {
     }, options);
   }
 
-  async get(module_name, id) {
-    return this.client.request(`/object/list/module/${module_name}/${id}`);
+  async get(module_name, id, options = {}) {
+    let endpoint = `/object/list/module/${module_name}/${id}`;
+    if (options.expand) {
+      const expand = Array.isArray(options.expand) ? options.expand.join(',') : options.expand;
+      endpoint += `?$expand=${encodeURIComponent(expand)}`;
+    }
+    return this.client.request(endpoint);
   }
 
   async list(module_name, options = {}) {

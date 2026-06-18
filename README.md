@@ -128,6 +128,10 @@ const purchase = await client.object.create('purchase', {
 // Get a specific object
 const obj = await client.object.get('purchase', 156);
 
+// Get a specific object, expanding subtables (e.g. order lines)
+const obj_with_lines = await client.object.get('purchase', 156, { expand: 'line' });
+const obj_with_multiple = await client.object.get('crm', 42, { expand: ['contact', 'email'] });
+
 // List all objects in a module
 const purchases = await client.object.list('purchase');
 
