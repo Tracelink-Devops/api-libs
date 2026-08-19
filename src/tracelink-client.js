@@ -446,10 +446,17 @@ class ObjectClient {
    * Get a specific module object by ID
    * @param {string} module_name - Module name
    * @param {number|string} id - Object ID
+   * @param {Object} [options] - Request options
+   * @param {string|string[]} [options.expand] - Subtable(s) to include inline, e.g. 'line,journal' or ['line', 'journal']
    * @returns {Promise<Object>}
    */
-  async get(module_name, id) {
-    return this.client.request(`/object/list/module/${module_name}/${id}`);
+  async get(module_name, id, options = {}) {
+    let endpoint = `/object/list/module/${module_name}/${id}`;
+    if (options.expand) {
+      const expand = Array.isArray(options.expand) ? options.expand.join(',') : options.expand;
+      endpoint += `?$expand=${encodeURIComponent(expand)}`;
+    }
+    return this.client.request(endpoint);
   }
 
   /**
