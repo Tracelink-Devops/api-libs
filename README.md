@@ -128,9 +128,8 @@ const purchase = await client.object.create('purchase', {
 // Get a specific object
 const obj = await client.object.get('purchase', 156);
 
-// Get a specific object, expanding subtables (e.g. order lines)
+// Get a specific object, expanding sub-tables (see "Expanding sub-tables" below)
 const obj_with_lines = await client.object.get('purchase', 156, { expand: 'line' });
-const obj_with_multiple = await client.object.get('crm', 42, { expand: ['contact', 'email'] });
 
 // List all objects in a module
 const purchases = await client.object.list('purchase');
@@ -143,6 +142,34 @@ await client.object.update('purchase', {
 
 // Delete an object
 await client.object.delete('purchase', 'purchase_id', 156);
+```
+
+### Expanding sub-tables
+
+For modules that have sub-tables (see the **Expand sub-tables** column in [Available Modules](#available-modules)), `client.object.get()` can inline those sub-tables in the response using an OData-inspired `$expand` query parameter, instead of fetching them separately.
+
+Pass a single sub-table name, a comma-separated string, or an array:
+
+```javascript
+// Expand a single sub-table
+const obj_with_lines = await client.object.get('purchase', 156, { expand: 'line' });
+
+// Expand multiple sub-tables (comma-separated string or array both work)
+const obj_with_multiple = await client.object.get('purchase', 156, { expand: 'line,journal' });
+const obj_with_multiple_arr = await client.object.get('purchase', 156, { expand: ['line', 'journal'] });
+```
+
+Each expanded sub-table is returned as an array under its own key on `object`:
+
+```javascript
+{
+  "object": {
+    "purchase_id": "156",
+    // ...other purchase fields...
+    "line": [ { /* ... */ }, { /* ... */ } ],
+    "journal": [ { /* ... */ } ]
+  }
+}
 ```
 
 ### QR-code Modules (GenObj, Batch, Stockloc)
@@ -388,19 +415,22 @@ The library follows JavaScript best practices:
 
 ## Available Modules
 
-| Name | Internal Name | Description | Access By | Type |
-|------|---------------|-------------|-----------|------|
-| Custom lists | custlist | Custom lists for extra fields | | |
-| TimeReg | timereg | Time registration | Order | |
-| Customer | customer | Customers | | |
-| Task | task | Tasks and routes | Order | |
-| GenObj | genobj | Generic objects (stock, bookings, etc.) | Direct/Order | QR-code |
-| Batch | batch_genobj | Batch portions for stock | GenObj | QR-code |
-| Docs | docs | Guidelines, procedures, documents | | |
-| CRM | crm | CRM and sales quotes | | |
-| Purchase | purchase | Purchase orders | | |
-| Supplier | supplier | Purchasing suppliers | | |
-| Stock location | stockloc | Stock locations for GenObj/Batch | | QR-code |
+| Name | Internal Name | Description | Access By | Type | Expand sub-tables |
+|------|---------------|-------------|-----------|------|--------------------|
+| Custom lists | custlist | Custom lists for extra fields | | | |
+| TimeReg | timereg | Time registration | Order | | |
+| Customer | customer | Customers | | | |
+| Task | task | Tasks and routes | Order | | |
+| GenObj | genobj | Generic objects (stock, bookings, etc.) | Direct/Order | QR-code | journal |
+| Batch | batch_genobj | Batch portions for stock | GenObj | QR-code | |
+| Docs | docs | Guidelines, procedures, documents | | | journal, user |
+| CRM | crm | CRM and sales quotes | | | journal, email, econ, genobj |
+| QMS | ticket | Deviation/Nonconformance management | | | journal, email, expense (only extra expenses) |
+| Purchase | purchase | Purchase orders | | | line, journal, email |
+| Supplier | supplier | Purchasing suppliers | | | genobj |
+| Stock location | stockloc | Stock locations for GenObj/Batch | | QR-code | |
+
+For modules where **Expand sub-tables** is listed, `client.object.get()` can include those sub-tables inline in the response — see [Expanding sub-tables](#expanding-sub-tables) below.
 
 ## Metadata and Foreigndata
 
