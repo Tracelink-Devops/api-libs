@@ -12,6 +12,7 @@ class TracelinkClient {
    * Create a new Tracelink API client
    * @param {Object} config - Configuration options
    * @param {string} config.access_token - The API access token
+   * @param {string} [config.base_url='https://tracelink.app/rest'] - REST base URL, for tenant-specific hosts
    * @param {string} [config.format='json'] - Response format ('json' or 'xml')
    * @param {string} [config.charset='UTF-8'] - Character set ('UTF-8' or 'CP850')
    */
@@ -19,8 +20,9 @@ class TracelinkClient {
     if (!config?.access_token) {
       throw new Error('access_token is required');
     }
-    
+
     this.access_token = config.access_token;
+    this.base_url = (config.base_url || BASE_URL).replace(/\/+$/, '');
     this.format = config.format || 'json';
     this.charset = config.charset || 'UTF-8';
     
@@ -42,7 +44,7 @@ class TracelinkClient {
    * @returns {Promise<Object>} API response
    */
   async request(endpoint, body = {}, options = {}) {
-    const url = `${BASE_URL}${endpoint}`;
+    const url = `${this.base_url}${endpoint}`;
     
     const headers = {
       'x-access-token': this.access_token,
@@ -64,8 +66,30 @@ class TracelinkClient {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    
+    const raw = await response.text();
+
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = undefined;
+    }
+
+    // Some endpoints answer HTTP 500 with a completely empty body (e.g. modules
+    // without a generic object endpoint). Surface that as a TracelinkError
+    // instead of letting JSON.parse throw a bare SyntaxError.
+    if (data === null || typeof data !== 'object') {
+      const error = new TracelinkError(
+        `Non-JSON response (HTTP ${response.status}) from ${endpoint}` +
+          (raw ? `: ${raw.slice(0, 200)}` : ' (empty body)'),
+        response.status
+      );
+      error.http_status = response.status;
+      error.empty_body = raw === '';
+      error.raw_body = raw;
+      throw error;
+    }
+
     // Check for cached response (idempotency)
     const cached_key = response.headers.get('X-ResultFromCache');
     if (cached_key) {
@@ -73,9 +97,14 @@ class TracelinkClient {
       data._idempotency_key = cached_key;
     }
 
-    if (data.status === 'error') {
-      const error = new TracelinkError(data.message, data.code);
+    if (!response.ok || data.status === 'error') {
+      const error = new TracelinkError(
+        data.message || `HTTP ${response.status} from ${endpoint}${raw ? '' : ' (empty body)'}`,
+        data.code ?? response.status
+      );
       error.response = data;
+      error.http_status = response.status;
+      error.empty_body = raw === '';
       throw error;
     }
 
@@ -362,7 +391,7 @@ class SuborderClient {
    */
   async create(parent_order_id, data, options = {}) {
     return this.client.request('/tracelink/suborder/create', {
-      object: { parent_order_id, ...data }
+      object: { parent_id: parent_order_id, ...data }
     }, options);
   }
 
@@ -381,7 +410,7 @@ class SuborderClient {
    * @returns {Promise<Object>}
    */
   async list(options = {}) {
-    return this.client.request('/tracelink/suborder/list', build_order_params(options));
+    return this.client.request('/tracelink/suborder/list', buildOrderParams(options));
   }
 
   /**

@@ -29,8 +29,18 @@ console.log('Connected as:', user.user.name);
 ```javascript
 const client = new TracelinkClient({
   access_token: 'your-api-token',  // Required
+  base_url: 'https://tracelink.app/rest',  // Override for tenant-specific hosts
   format: 'json',                   // 'json' or 'xml' (default: 'json')
   charset: 'UTF-8',                 // 'UTF-8' or 'CP850' (default: 'UTF-8')
+});
+```
+
+If your company is on its own host, point `base_url` at it — the REST API lives under `/rest`:
+
+```javascript
+const client = new TracelinkClient({
+  access_token: 'your-api-token',
+  base_url: 'https://yourcompany.tracelink.app/rest',
 });
 ```
 
@@ -286,7 +296,7 @@ const orders = await client.order.list({
   filter: {
     locked: '=0',                    // Equal to
     create_date: '>2024-01-01',      // Greater than
-    name: 'Project',                 // LIKE (default)
+    name: '%Project%',               // LIKE - bare values are prefix matches, see below
   },
 });
 
@@ -326,8 +336,8 @@ const orders = await client.order.list({
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| (empty) | LIKE (default) | `name: 'Project'` |
-| `~` | NOT LIKE | `name: '~Test'` |
+| (empty) | LIKE (default) | `name: '%Project%'` |
+| `~` | NOT LIKE | `name: '~%Test%'` |
 | `=` | Equal to | `locked: '=0'` |
 | `!=` | Not equal | `locked: '!=1'` |
 | `<` | Less than | `price: '<100'` |
@@ -337,6 +347,53 @@ const orders = await client.order.list({
 | `IN()` | In list | `order_id: 'IN(1,2,3)'` |
 | `!IN()` | Not in list | `order_id: '!IN(4,5,6)'` |
 | `B` | Between | `date: 'B2024-01-01,2024-12-31'` |
+
+`LIKE`/`NOT LIKE` append a trailing `%` automatically, so a bare value is a **prefix** match, not a
+"contains" match:
+
+| Filter | Resulting SQL | Matches |
+|--------|---------------|---------|
+| `name: 'Steel'` | `LIKE 'Steel%'` | `Steel frame`, but **not** `Cold Steel` |
+| `name: '%Steel'` | `LIKE '%Steel%'` | anywhere in the value |
+| `name: '%Steel%'` | `LIKE '%Steel%%'` | anywhere in the value (same as above) |
+
+To match anywhere in the value, put a leading `%` on it yourself.
+
+## Response Envelope
+
+Every response is an envelope with `status`, `code`, `message` and `count`. The rows themselves
+live under a per-endpoint key, which is not consistent across the API:
+
+| Method | Key holding the rows |
+|--------|----------------------|
+| `order.list()` | `order` |
+| `order.get(id)` | `order` |
+| `suborder.list()` | `suborder` |
+| `suborder.get(id)` | `suborder` |
+| `object.list(module)` | `objects` |
+| `object.list('<module>:journal')` | `objects` |
+| `object.get(module, id)` | `object` |
+| `order.listModule(module)` | `objects` |
+| `object.listRelations(a, b)` | `objects` |
+| `util.listDocuments(module)` | `object` |
+| `user.list()` | `users` |
+| `user.get()` | `user` |
+| `user.listGroups()` | `group` |
+| `company.listDepartments()` | `depts` |
+| `company.get()` | `company` |
+
+Note in particular that `object.list()` returns `objects` while `object.get()` returns `object`,
+and that `user.list()` returns `users` while `company.listDepartments()` returns `depts` — the
+singular/plural choice is not consistent, so check this table rather than guessing.
+
+`company.get()` likewise nests its master data under `company` rather than on the top level, and
+returns `company.ui_settings` as a **JSON string** that you have to parse yourself:
+
+```javascript
+const response = await client.company.get();
+const company = response.company;
+const ui_settings = company.ui_settings ? JSON.parse(company.ui_settings) : {};
+```
 
 ## Idempotency
 
@@ -367,11 +424,32 @@ try {
 } catch (error) {
   if (error instanceof TracelinkError) {
     console.error('Tracelink error:', error.message);
-    console.error('HTTP code:', error.code);
+    console.error('Error code:', error.code);        // API code, or HTTP status as fallback
+    console.error('HTTP status:', error.http_status);
     console.error('Full response:', error.response);
   } else {
     console.error('Network error:', error);
   }
+}
+```
+
+Any non-2xx response, `status: 'error'` body, or unparseable/empty body is raised as a
+`TracelinkError` — the client never lets a raw `SyntaxError` escape.
+
+Several endpoints answer **HTTP 500 with an empty body** when the requested module simply has no
+such table (a module without a generic object endpoint, without a journal, or without documents;
+likewise a relation pair that is not defined in that direction). Use `error.empty_body` to tell
+"not supported for this module" apart from a real failure:
+
+```javascript
+try {
+  const rows = await client.object.list('trace');
+} catch (error) {
+  if (error instanceof TracelinkError && error.empty_body) {
+    // Module has no generic object endpoint - treat as "no data"
+    return [];
+  }
+  throw error;
 }
 ```
 

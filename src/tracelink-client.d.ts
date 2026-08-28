@@ -4,6 +4,8 @@
 
 export interface TracelinkConfig {
   access_token: string;
+  /** REST base URL for tenant-specific hosts. Defaults to `https://tracelink.app/rest`. */
+  base_url?: string;
   format?: 'json' | 'xml';
   charset?: 'UTF-8' | 'CP850';
 }
@@ -83,7 +85,8 @@ export interface SubOrderData {
 
 export interface SubOrder extends SubOrderData {
   order_sub_id: string;
-  parent_order_id: string;
+  /** The parent order. Note it is sent as `parent_id` on create, but returned as `order_id`. */
+  order_id: string;
 }
 
 export interface DocumentUpload {
@@ -96,14 +99,27 @@ export interface ModuleObject {
   [key: string]: any;
 }
 
+export interface Company {
+  name: string;
+  products?: Array<{ modules: any[] }>;
+  depts?: any[];
+  /**
+   * UI settings, returned as a **JSON string** (not an object).
+   * Callers must `JSON.parse()` it themselves.
+   */
+  ui_settings?: string;
+  [key: string]: any;
+}
+
 declare class CompanyClient {
-  get(): Promise<TracelinkResponse & { company: any }>;
-  listDepartments(options?: OrderParams): Promise<TracelinkResponse & { dept: any[] }>;
+  /** Master data is nested under `company` - not spread onto the top level. */
+  get(): Promise<TracelinkResponse & { company: Company }>;
+  listDepartments(options?: OrderParams): Promise<TracelinkResponse & { depts: any[] }>;
 }
 
 declare class UserClient {
   get(): Promise<TracelinkResponse & { user: any }>;
-  list(options?: OrderParams): Promise<TracelinkResponse & { user: any[] }>;
+  list(options?: OrderParams): Promise<TracelinkResponse & { users: any[] }>;
   listGroups(options?: OrderParams): Promise<TracelinkResponse & { group: any[] }>;
 }
 
@@ -147,7 +163,7 @@ declare class ObjectClient {
   createTag(product_id: string, count?: number): Promise<TracelinkResponse & { object: { tag_id: string } }>;
   create(module_name: string, data: ModuleObject, options?: RequestOptions): Promise<TracelinkResponse>;
   get(module_name: string, id: number | string, options?: GetObjectOptions): Promise<TracelinkResponse & { object: ModuleObject }>;
-  list(module_name: string, options?: OrderParams): Promise<TracelinkResponse & { object: ModuleObject[] }>;
+  list(module_name: string, options?: OrderParams): Promise<TracelinkResponse & { objects: ModuleObject[] }>;
   update(module_name: string, data: ModuleObject, options?: RequestOptions): Promise<TracelinkResponse>;
   delete(module_name: string, id_field: string, id_value: number | string): Promise<TracelinkResponse>;
   uploadDocument(
@@ -190,6 +206,7 @@ export declare class TracelinkClient {
   constructor(config: TracelinkConfig);
   
   access_token: string;
+  base_url: string;
   format: 'json' | 'xml';
   charset: 'UTF-8' | 'CP850';
   
@@ -205,8 +222,18 @@ export declare class TracelinkClient {
 
 export declare class TracelinkError extends Error {
   constructor(message: string, code: number);
+  /** API error code when present, otherwise the HTTP status. */
   code: number;
   response?: TracelinkResponse;
+  /** HTTP status of the response. */
+  http_status?: number;
+  /**
+   * True when the server answered with an empty body - typically a module that
+   * has no generic object/journal/document endpoint, rather than a real failure.
+   */
+  empty_body?: boolean;
+  /** Raw response body, set when the body could not be parsed as JSON. */
+  raw_body?: string;
 }
 
 export declare function buildOrderParams(options?: OrderParams): { order?: object };
