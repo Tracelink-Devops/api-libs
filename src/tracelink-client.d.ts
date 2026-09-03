@@ -164,6 +164,9 @@ declare class ObjectClient {
   create(module_name: string, data: ModuleObject, options?: RequestOptions): Promise<TracelinkResponse>;
   get(module_name: string, id: number | string, options?: GetObjectOptions): Promise<TracelinkResponse & { object: ModuleObject }>;
   list(module_name: string, options?: OrderParams): Promise<TracelinkResponse & { objects: ModuleObject[] }>;
+  /** Preferred form - the object ID is sent in the URL path. */
+  update(module_name: string, id: number | string, data: Partial<ModuleObject>, options?: RequestOptions): Promise<TracelinkResponse>;
+  /** Legacy form - the object ID must be embedded in `data`. */
   update(module_name: string, data: ModuleObject, options?: RequestOptions): Promise<TracelinkResponse>;
   delete(module_name: string, id_field: string, id_value: number | string): Promise<TracelinkResponse>;
   uploadDocument(

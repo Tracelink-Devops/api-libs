@@ -279,8 +279,8 @@ class OrderClient {
    * @returns {Promise<Object>}
    */
   async update(order_id, data, options = {}) {
-    return this.client.request('/tracelink/order/update', {
-      object: { order_id, ...data }
+    return this.client.request(`/tracelink/order/update/${order_id}`, {
+      object: data
     }, options);
   }
 
@@ -421,8 +421,8 @@ class SuborderClient {
    * @returns {Promise<Object>}
    */
   async update(order_sub_id, data, options = {}) {
-    return this.client.request('/tracelink/suborder/update', {
-      object: { order_sub_id, ...data }
+    return this.client.request(`/tracelink/suborder/update/${order_sub_id}`, {
+      object: data
     }, options);
   }
 
@@ -499,16 +499,30 @@ class ObjectClient {
   }
 
   /**
-   * Update a module object
+   * Update a module object. Supports two forms:
+   *  - `update(module_name, id, data, options)` - id sent in the URL path (preferred)
+   *  - `update(module_name, data, options)` - id embedded in `data` (legacy form)
    * @param {string} module_name - Module name
-   * @param {Object} data - Update data (must include object ID)
+   * @param {number|string|Object} id_or_data - Object ID, or the full update data with the ID embedded (legacy form)
+   * @param {Object} [data] - Fields to update, when `id_or_data` is an ID
    * @param {Object} [options] - Request options
    * @returns {Promise<Object>}
    */
-  async update(module_name, data, options = {}) {
-    return this.client.request(`/object/update/${module_name}`, {
-      object: data
-    }, options);
+  async update(module_name, id_or_data, data, options = {}) {
+    let id;
+    if (typeof id_or_data === 'object' && id_or_data !== null) {
+      // legacy form: update(module_name, data, options)
+      options = data || {};
+      data = id_or_data;
+    } else {
+      id = id_or_data;
+    }
+
+    const endpoint = id !== undefined
+      ? `/object/update/${module_name}/${id}`
+      : `/object/update/${module_name}`;
+
+    return this.client.request(endpoint, { object: data }, options);
   }
 
   /**

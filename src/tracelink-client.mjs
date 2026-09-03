@@ -192,8 +192,8 @@ class OrderClient {
   }
 
   async update(order_id, data, options = {}) {
-    return this.client.request('/tracelink/order/update', {
-      object: { order_id, ...data }
+    return this.client.request(`/tracelink/order/update/${order_id}`, {
+      object: data
     }, options);
   }
 
@@ -264,8 +264,8 @@ class SuborderClient {
   }
 
   async update(order_sub_id, data, options = {}) {
-    return this.client.request('/tracelink/suborder/update', {
-      object: { order_sub_id, ...data }
+    return this.client.request(`/tracelink/suborder/update/${order_sub_id}`, {
+      object: data
     }, options);
   }
 
@@ -306,10 +306,24 @@ class ObjectClient {
     return this.client.request(`/object/list/module/${module_name}`, buildOrderParams(options));
   }
 
-  async update(module_name, data, options = {}) {
-    return this.client.request(`/object/update/${module_name}`, {
-      object: data
-    }, options);
+  // Supports two forms:
+  //  - update(module_name, id, data, options) - id sent in the URL path (preferred)
+  //  - update(module_name, data, options) - id embedded in `data` (legacy form)
+  async update(module_name, id_or_data, data, options = {}) {
+    let id;
+    if (typeof id_or_data === 'object' && id_or_data !== null) {
+      // legacy form: update(module_name, data, options)
+      options = data || {};
+      data = id_or_data;
+    } else {
+      id = id_or_data;
+    }
+
+    const endpoint = id !== undefined
+      ? `/object/update/${module_name}/${id}`
+      : `/object/update/${module_name}`;
+
+    return this.client.request(endpoint, { object: data }, options);
   }
 
   async delete(module_name, id_field, id_value) {

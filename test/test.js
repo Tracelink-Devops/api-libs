@@ -67,6 +67,26 @@ test('suborder.list builds order params', async () => {
   assert.deepEqual(requests[0].body, { order: { sort: 'name', reverse: 1, limit: 5 } });
 });
 
+test('order.update sends the id in the URL path', async () => {
+  const { requests } = stubFetch([ok({})]);
+  const client = new TracelinkClient({ access_token: 'token' });
+
+  await client.order.update(1040, { name: 'Updated name' });
+
+  assert.equal(requests[0].url, 'https://tracelink.app/rest/tracelink/order/update/1040');
+  assert.deepEqual(requests[0].body.object, { name: 'Updated name' });
+});
+
+test('suborder.update sends the id in the URL path', async () => {
+  const { requests } = stubFetch([ok({})]);
+  const client = new TracelinkClient({ access_token: 'token' });
+
+  await client.suborder.update(7, { name: 'New name' });
+
+  assert.equal(requests[0].url, 'https://tracelink.app/rest/tracelink/suborder/update/7');
+  assert.deepEqual(requests[0].body.object, { name: 'New name' });
+});
+
 test('an empty 500 body raises a TracelinkError flagged as empty_body', async () => {
   stubFetch([{ status: 500, body: '' }]);
   const client = new TracelinkClient({ access_token: 'token' });
@@ -134,6 +154,37 @@ test('object.get appends $expand for sub-tables', async () => {
 
   assert.ok(requests[0].url.endsWith('/object/list/module/purchase/156?$expand=line'));
   assert.ok(requests[1].url.endsWith('/object/list/module/purchase/156?$expand=line%2Cjournal'));
+});
+
+test('object.update sends the id in the URL path when given as a separate argument', async () => {
+  const { requests } = stubFetch([ok({})]);
+  const client = new TracelinkClient({ access_token: 'token' });
+
+  await client.object.update('purchase', 156, { name: 'Updated name' });
+
+  assert.equal(requests[0].url, 'https://tracelink.app/rest/object/update/purchase/156');
+  assert.deepEqual(requests[0].body.object, { name: 'Updated name' });
+});
+
+test('object.update falls back to the legacy id-in-payload form', async () => {
+  const { requests } = stubFetch([ok({})]);
+  const client = new TracelinkClient({ access_token: 'token' });
+
+  await client.object.update('purchase', { purchase_id: 156, name: 'Updated name' });
+
+  assert.equal(requests[0].url, 'https://tracelink.app/rest/object/update/purchase');
+  assert.deepEqual(requests[0].body.object, { purchase_id: 156, name: 'Updated name' });
+});
+
+test('object.update passes options through in both forms', async () => {
+  const { requests } = stubFetch([ok({}), ok({})]);
+  const client = new TracelinkClient({ access_token: 'token' });
+
+  await client.object.update('purchase', 156, { name: 'A' }, { idempotency_key: 'key-1' });
+  await client.object.update('purchase', { purchase_id: 156, name: 'B' }, { idempotency_key: 'key-2' });
+
+  assert.equal(requests[0].headers['Idempotency-Key'], 'key-1');
+  assert.equal(requests[1].headers['Idempotency-Key'], 'key-2');
 });
 
 test('buildOrderParams returns an empty object when there is nothing to send', () => {

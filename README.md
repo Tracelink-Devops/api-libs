@@ -144,7 +144,10 @@ const obj_with_lines = await client.object.get('purchase', 156, { expand: 'line'
 // List all objects in a module
 const purchases = await client.object.list('purchase');
 
-// Update an object
+// Update an object (id in the URL - preferred)
+await client.object.update('purchase', 156, { name: 'Updated name' });
+
+// Update an object (id embedded in data - legacy form)
 await client.object.update('purchase', {
   purchase_id: 156,
   name: 'Updated name',
@@ -184,14 +187,25 @@ Each expanded sub-table is returned as an array under its own key on `object`:
 
 ### QR-code Modules (GenObj, Batch, Stockloc)
 
-For modules with QR-code type, you must first create a tag_id:
+For modules with QR-code type, a tag_id is generated automatically if you don't supply one:
+
+```javascript
+// Create object - tag_id is generated automatically
+const genobj = await client.object.create('genobj', {
+  name: 'Stock product',
+  description: 'My description',
+});
+console.log('Tag ID:', genobj.object.tag_id);
+```
+
+Only call `createTag` first if you want to choose/reserve the tag_id yourself:
 
 ```javascript
 // Create tag_id
 const tag = await client.object.createTag('2', 1);
 console.log('Tag ID:', tag.object.tag_id);
 
-// Create object with tag_id
+// Create object with that tag_id
 const genobj = await client.object.create('genobj', {
   tag_id: tag.object.tag_id,
   name: 'Stock product',
