@@ -15,6 +15,7 @@ class TracelinkClient {
    * @param {string} [config.base_url='https://tracelink.app/rest'] - REST base URL, for tenant-specific hosts
    * @param {string} [config.format='json'] - Response format ('json' or 'xml')
    * @param {string} [config.charset='UTF-8'] - Character set ('UTF-8' or 'CP850')
+   * @param {Object<string, string>} [config.headers] - Extra headers for every request; they never replace the client's own
    */
   constructor(config) {
     if (!config?.access_token) {
@@ -25,6 +26,8 @@ class TracelinkClient {
     this.base_url = (config.base_url || BASE_URL).replace(/\/+$/, '');
     this.format = config.format || 'json';
     this.charset = config.charset || 'UTF-8';
+    // sent with every request, e.g. { 'X-Tracelink-Layer': 'mcp' } so the server can tell the caller apart
+    this.headers = { ...(config.headers || {}) };
     
     // Initialize sub-clients
     this.company = new CompanyClient(this);
@@ -47,6 +50,7 @@ class TracelinkClient {
     const url = `${this.base_url}${endpoint}`;
     
     const headers = {
+      ...this.headers,
       'x-access-token': this.access_token,
       'Content-Type': 'application/json',
       'Accept': this.format === 'xml' ? 'application/xml' : 'application/json',

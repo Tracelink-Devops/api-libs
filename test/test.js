@@ -47,6 +47,16 @@ test('constructor requires an access_token', () => {
   assert.throws(() => new TracelinkClient({}), /access_token is required/);
 });
 
+test('extra headers go with every request, but never replace the client\'s own', async () => {
+  const { requests } = stubFetch([{ status: 200, body: JSON.stringify({ status: 'ok', code: 200 }) }]);
+  const client = new TracelinkClient({ access_token: 'token', headers: { 'X-Tracelink-Layer': 'mcp', 'x-access-token': 'other' } });
+
+  await client.request('/util/ping');
+
+  assert.equal(requests[0].headers['X-Tracelink-Layer'], 'mcp');
+  assert.equal(requests[0].headers['x-access-token'], 'token');
+});
+
 test('suborder.create sends the parent id under parent_id', async () => {
   const { requests } = stubFetch([{ status: 201, body: JSON.stringify({ status: 'ok', code: 201, order_sub_id: 7 }) }]);
   const client = new TracelinkClient({ access_token: 'token' });
