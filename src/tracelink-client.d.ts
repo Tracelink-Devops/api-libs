@@ -8,6 +8,8 @@ export interface TracelinkConfig {
   base_url?: string;
   format?: 'json' | 'xml';
   charset?: 'UTF-8' | 'CP850';
+  /** Extra headers for every request; they never replace the client's own */
+  headers?: Record<string, string>;
 }
 
 export interface RequestOptions {
@@ -212,6 +214,7 @@ export declare class TracelinkClient {
   base_url: string;
   format: 'json' | 'xml';
   charset: 'UTF-8' | 'CP850';
+  headers: Record<string, string>;
   
   company: CompanyClient;
   user: UserClient;
