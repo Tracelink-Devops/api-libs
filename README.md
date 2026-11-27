@@ -569,6 +569,34 @@ Column names follow a naming convention where the suffix indicates the type:
 
 All dates are in CET (adjusted for daylight saving time). All decimals have a maximum length of 16 (10 before decimal point, 6 after).
 
+## Events (STOMP)
+
+Tracelink announces every change - an order created, a purchase changing state, a CRM activity deleted - as an event,
+so an integration can listen instead of polling the API. The events come over
+[STOMP 1.1](https://stomp.github.io/stomp-specification-1.1.html) on a WebSocket, with the same access token:
+
+```
+wss://tracelink.app/wss    (sub-protocol v11.stomp, CONNECT header access-token)
+```
+
+[`examples/listen-events.mjs`](examples/listen-events.mjs) connects, subscribes and connects again when the connection
+is lost - no packages, Node.js 22+ or a browser:
+
+```bash
+TRACELINK_TOKEN=your-api-token node examples/listen-events.mjs /topic/order.update /topic/purchase.update
+```
+
+- **Topics:** `/topic/<topic>.create`, `.update` and `.delete` - `order`, `suborder`, a module's internal name (`crm`,
+  `purchase`, `genobj` ...), its lines on an order (`genobj.order`).
+- **The message:** the row as JSON; an update also has `changed: { field: { from, to } }`. The headers carry
+  `company`, `dept` and the row's keys.
+- **A topic keeps nothing:** events sent while you are not connected are not delivered later - read what you missed
+  from the API after a reconnect.
+- **Listen only:** a token can subscribe (Read access), not send.
+
+The details - selectors, queues and acknowledgements - are in
+[the API documentation, chapter 11](https://tracelink.dk/api-doc/#11).
+
 ## Complete Example
 
 ```javascript
